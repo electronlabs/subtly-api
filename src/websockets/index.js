@@ -1,15 +1,18 @@
 const http = require('http');
 const SocketIO = require('socket.io');
+const logger = require('../utils/logger');
 const audioHandler = require('./audio/handler');
 
 const server = http.createServer();
 const io = SocketIO(server);
-const namespace = io.of('/transcribe');
 
 function create({ subtitlesService }) {
-  namespace.on('connection', socket => {
-    const handleAudio = audioHandler.create(subtitlesService);
-    socket.on('audio chunk', handleAudio);
+  io.on('connection', socket => {
+    logger.info('socket connected');
+    const handleAudio = audioHandler.create(socket, subtitlesService);
+    socket.on('audio chunk', chunk => {
+      handleAudio(chunk);
+    });
   });
   return server;
 }

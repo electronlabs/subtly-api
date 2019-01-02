@@ -3,7 +3,7 @@ const http2 = require('http2');
 const logger = require('../../utils/logger');
 
 const getSignedRequestOptions = (awsConfig, body) => {
-  const host = 'transcribestreaming.eu-west-1.amazonaws.com';
+  const host = 'https://transcribestreaming.eu-west-1.amazonaws.com';
   const path = '/stream-transcription';
   const method = 'POST';
   const contentType = 'application/json';
@@ -22,10 +22,12 @@ const getSignedRequestOptions = (awsConfig, body) => {
 
   const options = { host, path, method, headers };
 
-  return aws4.sign(options, {
+  const signedOptions = aws4.sign(options, {
     accessKeyId: awsConfig.accessKeyId,
     secretAccessKey: awsConfig.secretAccessKey,
   });
+
+  return signedOptions;
 };
 
 function create(awsConfig) {
@@ -42,14 +44,24 @@ function create(awsConfig) {
 
     const signedRequestOptions = getSignedRequestOptions(awsConfig, body);
     const clientSession = http2.connect(`${signedRequestOptions.host}`);
-    const req = clientSession.request(signedRequestOptions.headers);
+    const { headers } = signedRequestOptions;
+    delete headers.Host;
+
+    const req = clientSession.request(headers);
     req.setEncoding('utf8');
     req.write(body);
     req.end();
 
-    req.on('response', headers => {
-      logger.info(headers[':status']);
+    req.on('response', resHeaders => {
+      logger.info('response');
+      logger.info(resHeaders[':status']);
     });
+
+    req.on('headers', () => {
+      logger.info('headers');
+    });
+
+    req.on('push', () => logger.info('push'));
   }
 
   return {
